@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <conio.h>
 
 #include <wiringPi.h>
 
@@ -60,7 +59,7 @@ struct record_play {
 
 #define DEFAULT_SETTING {\
         10,              \
-        "30",              \
+        "30",            \
         false,           \
         false,           \
         false,           \
@@ -93,7 +92,6 @@ void usage(void)
             "-M\t Set the music file played after reached max filename length.\n"
             "-N\t Set the music file played after got play or record but filename length is too short.\n"
             "-K\t Set the music file played when record time is almost up.\n"
-            ""
             "\n"
             "\n");
 }
@@ -200,7 +198,9 @@ static char rp_get_char(void)
     int ch = 0;
 
     if(rp.input_usb_keyboard) { /* read from usb keyboard */
-        ch = getch();
+        if(read(stdin, &ch, 1) < 0){
+			return '';
+		}
         if(ch > 0) {
             return (char)ch;
         }
