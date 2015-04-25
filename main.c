@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <wiringPi.h>
@@ -37,7 +40,7 @@ static int column[__column_max] = {
 
 static char matrix_key[__row_max][__column_max] = {
     {'1','2','3','4'},
-    {'*','5','#',''},
+    {'*','5','#',0x00},
 };
 
 struct record_play {
@@ -55,6 +58,7 @@ struct record_play {
     const char* reached_max_filename_len_music_file;
     const char* no_enough_filename_len_music_file;
     const char* click_music_file;
+    const char* file_no_exit_music_file;
 };
 
 #define DEFAULT_SETTING {\
@@ -65,6 +69,7 @@ struct record_play {
         false,           \
         '*',             \
         '#',             \
+        NULL,            \
         NULL,            \
         NULL,            \
         NULL,            \
@@ -91,6 +96,7 @@ void usage(void)
             "-F\t Set the music file played before start record.\n"
             "-M\t Set the music file played after reached max filename length.\n"
             "-N\t Set the music file played after got play or record but filename length is too short.\n"
+            "-O\t Set the music file played when can not find the file will be played.\n"
             "-K\t Set the music file played when record time is almost up.\n"
             "\n"
             "\n");
@@ -102,6 +108,9 @@ static void play_music(const char* filename)
 {
     char* cmd = NULL;
     if(NULL != filename) {
+        if(access(filename, 0) != 0){
+            filename = rp.file_no_exit_music_file;
+        }
         cmd = (char*)malloc(MAX_CMD_BUF_LEN*sizeof(*cmd));
         if(NULL == cmd) {
             return;
@@ -190,7 +199,7 @@ static char getch_matrix(void)
         }
     }
 
-    return '';
+    return 0x00;
 }
 
 static char rp_get_char(void)
@@ -198,14 +207,14 @@ static char rp_get_char(void)
     int ch = 0;
 
     if(rp.input_usb_keyboard) { /* read from usb keyboard */
-        if(read(stdin, &ch, 1) < 0){
-			return '';
+        if(read(0, &ch, 1) < 0){
+			return 0x00;
 		}
         if(ch > 0) {
             return (char)ch;
         }
         else {
-            return '';
+            return 0x00;
         }
     }
     else { /* read from matrix keyboard */
@@ -279,9 +288,9 @@ static void rp_record(const char* filename)
         system(cmd);
         free(cmd);
 
-        if(rp.max_record_time>5) {
+        if(atoi(rp.max_record_time)>5) {
             int i = 0;
-            sleep(rp.max_record_time-5);
+            sleep(atoi(rp.max_record_time)-5);
             for(i=0; i<5; i++) {
                 rp_play_click();
                 sleep(1);
@@ -294,7 +303,7 @@ static void rp_loop(void)
 {
     static char* filename = NULL;
     int filename_ptr = 0;
-    char ch = '';
+    char ch = 0x00;
 
     if(rp.max_filename_len<1) {
         fprintf(stderr,"max filename length %d is invalid\n", rp.max_filename_len);
@@ -309,43 +318,45 @@ static void rp_loop(void)
 
     while(true) {
         ch = rp_get_char();
-        if('' != ch) {
-            switch(ch) {
-                case rp.play_key:
-                    filename[filename_ptr] = '\0';
-                    if(file_name_len_check(filename)) {
-                        rp_play_start_play();
-                        rp_play(filename);
-                    }
-                    else {
-                        rp_play_filename_len_too_short();
-                    }
+        if(0x00 != ch) {
+            if(rp.play_key == ch) {
+                filename[filename_ptr] = '\0';
+                if(file_name_len_check(filename)) {
+                    rp_play_start_play();
+                    rp_play(filename);
+                }
+                else {
+                    rp_play_filename_len_too_short();
+                }
+                filename_ptr = 0;
+                filename[filename_ptr] = '\0';
+            }
+            else if(rp.record_key == ch) {
+                filename[filename_ptr] = '\0';
+                if(file_name_len_check(filename)) {
+                    rp_play_start_record();
+                    rp_record(filename);
+                }
+                else {
+                    rp_play_filename_len_too_short();
+                }
+                filename_ptr = 0;
+                filename[filename_ptr] = '\0';
+            }
+            else {
+                if(!isdigit(ch)) {
+                    continue;
+                }
+                if(filename_ptr < rp.max_filename_len) {
+                    rp_play_got_a_key();
+                    filename[filename_ptr] = ch;
+                    filename_ptr++;
+                }
+                else {
+                    rp_play_reached_max_filename_len();
                     filename_ptr = 0;
                     filename[filename_ptr] = '\0';
-                    break;
-                case rp.record_key:
-                    filename[filename_ptr] = '\0';
-                    if(file_name_len_check(filename)) {
-                        rp_play_start_record();
-                        rp_record(filename);
-                    }
-                    else {
-                        rp_play_filename_len_too_short();
-                    }
-                    filename_ptr = 0;
-                    filename[filename_ptr] = '\0';
-                    break;
-                default:
-                    if(filename_ptr < rp.max_filename_len) {
-                        rp_play_got_a_key();
-                        filename[filename_ptr] = ch;
-                        filename_ptr++;
-                    }
-                    else {
-                        rp_play_reached_max_filename_len();
-                        filename_ptr = 0;
-                        filename[filename_ptr] = '\0';
-                    }
+                }
             }
         }
     }
@@ -362,7 +373,7 @@ int main(int argc, char* argv[])
                 rp.max_filename_len = atoi(optarg);
                 break;
             case 'L':
-                rp.max_record_time = atoi(optarg);
+                rp.max_record_time = optarg;
                 break;
             case 's':
                 rp.must_be_max_filename_len = true;
