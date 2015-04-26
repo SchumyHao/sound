@@ -10,6 +10,8 @@
 #define REMOVABLE_DEVICE_SAVE_FOLDER     "/home/pi/records/usb/"
 
 #define MAX_CMD_BUF_LEN                  (1024)
+//#define DBG_PRINT         fprintf
+#define DBG_PRINT(...)
 
 /* use column scan method to get matrix keyboard value */
 enum row_io {
@@ -116,12 +118,16 @@ static void play_music(const char* filename)
     if(NULL != filename) {
         if(access(filename, 0) != 0) {
             filename = rp.file_no_exit_music_file;
+            if(filename == NULL) {
+                return;
+            }
         }
         cmd = (char*)malloc(MAX_CMD_BUF_LEN*sizeof(*cmd));
         if(NULL == cmd) {
             return;
         }
         strcat(strcat(strcpy(cmd,"aplay "),filename)," &");
+        printf("Start play. File name=%s", filename);
         system(cmd);
         free(cmd);
     }
@@ -201,6 +207,7 @@ static char getch_matrix(void)
             continue;
         }
         else {
+            while(get_low_row() >= 0);
             return matrix_key[low_row][i];
         }
     }
@@ -291,6 +298,7 @@ static void rp_record(const char* filename)
             strcat(cmd, filename);
             strcat(cmd, ".wav &");
         }
+        printf("Start record. File name=%s", filename);
         system(cmd);
         free(cmd);
 
@@ -325,6 +333,7 @@ static void rp_loop(void)
     while(true) {
         ch = rp_get_char();
         if(0x00 != ch) {
+            DBG_PRINT(stderr,"got ch=%c\n", ch);
             if(rp.play_key == ch) {
                 filename[filename_ptr] = '\0';
                 if(file_name_len_check(filename)) {
