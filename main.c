@@ -15,11 +15,15 @@
 enum row_io {
     row_0,
     row_1,
+    row_2,
+    row_3,
     __row_max,
 };
 static int row[__row_max] = {
     7,    //wiringPi Pin 7, P1-7
     0,    //wiringPi Pin 0, P1-11
+    2,    //wiringPi Pin 2, P1-13
+    3,    //wiringPi Pin 3, P1-15
 };
 #define row_mask     (0x81)
 
@@ -40,7 +44,9 @@ static int column[__column_max] = {
 
 static char matrix_key[__row_max][__column_max] = {
     {'1','2','3','4'},
-    {'*','5','#',0x00},
+    {'5','6','7','8'},
+    {'9','0','A','B'},
+    {'C','D','E','F'},
 };
 
 struct record_play {
@@ -108,7 +114,7 @@ static void play_music(const char* filename)
 {
     char* cmd = NULL;
     if(NULL != filename) {
-        if(access(filename, 0) != 0){
+        if(access(filename, 0) != 0) {
             filename = rp.file_no_exit_music_file;
         }
         cmd = (char*)malloc(MAX_CMD_BUF_LEN*sizeof(*cmd));
@@ -207,9 +213,9 @@ static char rp_get_char(void)
     int ch = 0;
 
     if(rp.input_usb_keyboard) { /* read from usb keyboard */
-        if(read(0, &ch, 1) < 0){
-			return 0x00;
-		}
+        if(read(0, &ch, 1) < 0) {
+            return 0x00;
+        }
         if(ch > 0) {
             return (char)ch;
         }
