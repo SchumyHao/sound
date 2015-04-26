@@ -27,7 +27,7 @@ static int row[__row_max] = {
     2,    //wiringPi Pin 2, P1-13
     3,    //wiringPi Pin 3, P1-15
 };
-#define row_mask     (0x81)
+#define row_mask     (0x8D)
 
 enum column_io {
     column_0,
