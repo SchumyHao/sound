@@ -92,7 +92,7 @@ void usage(void)
     fprintf(stderr,
             "Usage: record-play [cmd] [argv]\n"
             "-l\t Set max length of record file name.(-l 8) default is 10.\n"
-            "-L\t Set max length of record time in second.(-L 30) default is 30.\n"
+            "-L\t Set max length of record time in second.(-L \"30\") default is \"30\".\n"
             "-s\t Set this make every record file name must be max length. default is false\n"
             "-b\t Set this make input comes from USB keyboard. default is false\n"
             "-d\t Set this make all sound files saved in removable device(usb storage). default is false\n"
