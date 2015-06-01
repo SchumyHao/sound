@@ -45,38 +45,46 @@ static int column[__column_max] = {
 #define column_mask   (0x72)
 
 static char matrix_key[__row_max][__column_max] = {
-    {'1','2','3','4'},
-    {'5','6','7','8'},
-    {'9','0','A','B'},
-    {'C','D','E','F'},
+    {'1','2','3','A'},
+    {'4','5','6','B'},
+    {'7','8','9','R'},
+    {'*','0','#','P'},
 };
 
 struct record_play {
-    int max_filename_len;
+    int filename_len;
     const char* max_record_time;
-    bool must_be_max_filename_len;
     bool input_usb_keyboard;
     bool store_in_removable_device;
     char play_key;
     char record_key;
-    const char* hello_music_file;
+    const char* pickup_music_file;
+    const char* input_play_keys_music_file;
     const char* got_a_char_music_file;
     const char* start_play_music_file;
+    const char* finish_play_music_file;
+    const char* input_record_keys_music_file;
     const char* start_record_music_file;
+    const char* finish_record_music_file;
+    const char* finish_record_wait_drop_down_music_file;
     const char* reached_max_filename_len_music_file;
     const char* no_enough_filename_len_music_file;
-    const char* click_music_file;
     const char* file_no_exit_music_file;
+    const char* click_music_file;
 };
 
 #define DEFAULT_SETTING {\
-        10,              \
+        7,               \
         "30",            \
-        false,           \
         false,           \
         false,           \
         '*',             \
         '#',             \
+        NULL,            \
+        NULL,            \
+        NULL,            \
+        NULL,            \
+        NULL,            \
         NULL,            \
         NULL,            \
         NULL,            \
@@ -91,17 +99,21 @@ void usage(void)
 {
     fprintf(stderr,
             "Usage: record-play [cmd] [argv]\n"
-            "-l\t Set max length of record file name.(-l 8) default is 10.\n"
+            "-l\t Set length of record file name.(-l 8) default is 7.\n"
             "-L\t Set max length of record time in second.(-L \"30\") default is \"30\".\n"
-            "-s\t Set this make every record file name must be max length. default is false\n"
             "-b\t Set this make input comes from USB keyboard. default is false\n"
             "-d\t Set this make all sound files saved in removable device(usb storage). default is false\n"
             "-P\t Set play key.(-P *) default is '*'\n"
             "-R\t Set record key.(-R *) default is '#'\n"
-            "-H\t Set the music file played after program start.\n"
+            "-H\t Set the music file played after pick up.\n"
+            "-I\t Set the music file played before input play keys.\n"
             "-C\t Set the music file played after got a char.\n"
             "-E\t Set the music file played before start play.\n"
+            "-J\t Set the music file played after finished play.\n"
+            "-Q\t Set the music file played before input record keys.\n"
             "-F\t Set the music file played before start record.\n"
+            "-T\t Set the music file played after finished record.\n"
+            "-S\t Set the music file played after finished record and wait drop down phone.\n"
             "-M\t Set the music file played after reached max filename length.\n"
             "-N\t Set the music file played after got play or record but filename length is too short.\n"
             "-O\t Set the music file played when can not find the file will be played.\n"
@@ -126,21 +138,38 @@ static void play_music(const char* filename)
         if(NULL == cmd) {
             return;
         }
-        strcat(strcat(strcpy(cmd,"aplay "),filename)," &");
-        printf("Start play. File name=%s", filename);
+        strcpy(cmd,"aplay ");
+        strcat(cmd,filename);
+        strcat(cmd," &");
+        printf("Start play. Cmd=%s", cmd);
         system(cmd);
         free(cmd);
     }
 }
 
-static inline void rp_play_hello(void)
+static inline void rp_play_pick_up(void)
 {
-    play_music(rp.hello_music_file);
+    play_music(rp.pickup_music_file);
+}
+
+static inline void rp_play_input_play_keys(void)
+{
+    play_music(rp.input_play_keys_music_file);
 }
 
 static inline void rp_play_start_play(void)
 {
     play_music(rp.start_play_music_file);
+}
+
+static inline void rp_play_finish_play(void)
+{
+    play_music(rp.finish_play_music_file);
+}
+
+static inline void rp_play_input_record_keys(void)
+{
+    play_music(rp.input_record_keys_music_file);
 }
 
 static inline void rp_play_filename_len_too_short(void)
@@ -151,6 +180,16 @@ static inline void rp_play_filename_len_too_short(void)
 static inline void rp_play_start_record(void)
 {
     play_music(rp.start_record_music_file);
+}
+
+static inline void rp_play_finish_record(void)
+{
+    play_music(rp.finish_record_music_file);
+}
+
+static inline void rp_play_finish_record_wait_dorp(void)
+{
+    play_music(rp.finish_record_wait_drop_down_music_file);
 }
 
 static inline void rp_play_got_a_key(void)
@@ -167,7 +206,6 @@ static inline void rp_play_click(void)
 {
     play_music(rp.click_music_file);
 }
-
 
 static inline int get_low_row(void)
 {
@@ -251,8 +289,7 @@ static void rp_play(const char* filename)
     char* full_path_file = NULL;
 
     if(rp.store_in_removable_device) {
-        full_path_file = (char*)malloc((strlen(REMOVABLE_DEVICE_SAVE_FOLDER)+
-                                        strlen(filename)+sizeof(".wav"))*sizeof(*full_path_file));
+        full_path_file = (char*)malloc(MAX_CMD_BUF_LEN*sizeof(*full_path_file));
         if(NULL == full_path_file) {
             return;
         }
@@ -261,8 +298,7 @@ static void rp_play(const char* filename)
         strcat(full_path_file, ".wav");
     }
     else {
-        full_path_file = (char*)malloc((strlen(IN_SYSTEM_SAVE_FOLDER)+
-                                        strlen(filename)+sizeof(".wav"))*sizeof(*full_path_file));
+        full_path_file = (char*)malloc(MAX_CMD_BUF_LEN*sizeof(*full_path_file));
         if(NULL == full_path_file) {
             return;
         }
@@ -298,7 +334,7 @@ static void rp_record(const char* filename)
             strcat(cmd, filename);
             strcat(cmd, ".wav &");
         }
-        printf("Start record. File name=%s", filename);
+        printf("Start record. Cmd=%s", cmd);
         system(cmd);
         free(cmd);
 
@@ -313,18 +349,36 @@ static void rp_record(const char* filename)
     }
 }
 
+static void rp_get_filename(char* filename)
+{
+    int i = 0;
+    char ch;
+    while(i < rp->filename_len) {
+        ch = rp_get_char();
+        if(0x00 != ch) {
+            DBG_PRINT(stderr,"got ch=%c\n", ch);
+            if(!isdigit(ch)) {
+                continue;
+            }
+            rp_play_got_a_key();
+            filename[i] = ch;
+            i++;
+        }
+    }
+    filename[i] = '\0';
+}
+
 static void rp_loop(void)
 {
     static char* filename = NULL;
-    int filename_ptr = 0;
     char ch = 0x00;
 
-    if(rp.max_filename_len<1) {
+    if(rp.filename_len<1) {
         fprintf(stderr,"max filename length %d is invalid\n", rp.max_filename_len);
         return;
     }
 
-    filename = (char*)calloc(1, rp.max_filename_len+1);
+    filename = (char*)calloc(1, rp.filename_len+1);
     if(filename == NULL) {
         fprintf(stderr,"calloc filename failed\n");
         return;
@@ -332,45 +386,52 @@ static void rp_loop(void)
 
     while(true) {
         ch = rp_get_char();
-        if(0x00 != ch) {
-            DBG_PRINT(stderr,"got ch=%c\n", ch);
-            if(rp.play_key == ch) {
-                filename[filename_ptr] = '\0';
-                if(file_name_len_check(filename)) {
-                    rp_play_start_play();
+        if('P' == ch) { /* pick up phone */
+            do {
+                rp_play_pick_up();
+                ch = rp_get_char();
+            }
+            while(('*'!=ch) && ('#'!=ch));
+            if('*' == ch) { /* start play sounds */
+                rp_play_input_play_keys();
+                rp_get_filename(filename);
+                rp_play_start_play();
+                rp_play(filename);
+                do {
+                    rp_play_finish_play();
+                    ch = rp_get_char();
+                }
+                while(('P'!=ch) && ('R'!=ch));
+                if('P' == ch) { /* drop down phone */
+                    ;
+                }
+                if('R' == ch) { /* start record */
+                    ch = '#';
+                }
+            }
+            if('#' == ch) { /* start record sounds */
+                rp_play_input_record_keys();
+                rp_get_filename(filename);
+RERECORD:
+                rp_play_start_record();
+                rp_record(filename);
+                do {
+                    rp_play_finish_record();
+                    ch = rp_get_char();
+                }
+                while(('0'!=ch) && ('*'!=ch) && ('#'!=ch));
+                if('0' == ch) { /* rerecord */
+                    goto RERECORD;
+                }
+                if('*' == ch) { /* try to play record sound */
                     rp_play(filename);
                 }
-                else {
-                    rp_play_filename_len_too_short();
-                }
-                filename_ptr = 0;
-                filename[filename_ptr] = '\0';
-            }
-            else if(rp.record_key == ch) {
-                filename[filename_ptr] = '\0';
-                if(file_name_len_check(filename)) {
-                    rp_play_start_record();
-                    rp_record(filename);
-                }
-                else {
-                    rp_play_filename_len_too_short();
-                }
-                filename_ptr = 0;
-                filename[filename_ptr] = '\0';
-            }
-            else {
-                if(!isdigit(ch)) {
-                    continue;
-                }
-                if(filename_ptr < rp.max_filename_len) {
-                    rp_play_got_a_key();
-                    filename[filename_ptr] = ch;
-                    filename_ptr++;
-                }
-                else {
-                    rp_play_reached_max_filename_len();
-                    filename_ptr = 0;
-                    filename[filename_ptr] = '\0';
+                if('#' == ch) { /* confirm */
+                    do {
+                        rp_play_finish_record_wait_dorp();
+                        ch = rp_get_char();
+                    }
+                    while('P'!=ch);
                 }
             }
         }
@@ -385,13 +446,10 @@ int main(int argc, char* argv[])
     while ((ch = getopt(argc, argv, "l:L:sbodP:R:")) != -1) {
         switch (ch) {
             case 'l':
-                rp.max_filename_len = atoi(optarg);
+                rp.filename_len = atoi(optarg);
                 break;
             case 'L':
                 rp.max_record_time = optarg;
-                break;
-            case 's':
-                rp.must_be_max_filename_len = true;
                 break;
             case 'b':
                 rp.input_usb_keyboard = true;
@@ -406,7 +464,10 @@ int main(int argc, char* argv[])
                 rp.record_key = *optarg;
                 break;
             case 'H':
-                rp.hello_music_file = optarg;
+                rp.pickup_music_file = optarg;
+                break;
+            case 'I':
+                rp.input_play_keys_music_file = optarg;
                 break;
             case 'C':
                 rp.got_a_char_music_file = optarg;
@@ -414,8 +475,20 @@ int main(int argc, char* argv[])
             case 'E':
                 rp.start_play_music_file = optarg;
                 break;
+            case 'J':
+                rp.finish_play_music_file = optarg;
+                break;
+            case 'Q':
+                rp.input_record_keys_music_file = optarg;
+                break;
             case 'F':
                 rp.start_record_music_file = optarg;
+                break;
+            case 'T':
+                rp.finish_record_music_file = optarg;
+                break;
+            case 'S':
+                rp.finish_record_wait_drop_down_music_file = optarg;
                 break;
             case 'M':
                 rp.reached_max_filename_len_music_file = optarg;
@@ -425,6 +498,9 @@ int main(int argc, char* argv[])
                 break;
             case 'K':
                 rp.click_music_file = optarg;
+                break;
+            case 'O':
+                rp.file_no_exit_music_file = optarg;
                 break;
             default:
                 usage();
@@ -445,8 +521,6 @@ int main(int argc, char* argv[])
             pinMode(column[i], OUTPUT);
         }
     }
-
-    rp_play_hello();
 
     rp_loop();
 
