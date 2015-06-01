@@ -275,13 +275,7 @@ static char rp_get_char(void)
 
 static bool file_name_len_check(const char* filename)
 {
-    if(rp.must_be_max_filename_len) {
-        return (strlen(filename)==rp.max_filename_len);
-    }
-    else {
-        int len = strlen(filename);
-        return ((len>0) && (len<=rp.max_filename_len));
-    }
+    return (strlen(filename)==rp.filename_len);
 }
 
 static void rp_play(const char* filename)
@@ -353,7 +347,7 @@ static void rp_get_filename(char* filename)
 {
     int i = 0;
     char ch;
-    while(i < rp->filename_len) {
+    while(i < rp.filename_len) {
         ch = rp_get_char();
         if(0x00 != ch) {
             DBG_PRINT(stderr,"got ch=%c\n", ch);
@@ -374,7 +368,7 @@ static void rp_loop(void)
     char ch = 0x00;
 
     if(rp.filename_len<1) {
-        fprintf(stderr,"max filename length %d is invalid\n", rp.max_filename_len);
+        fprintf(stderr,"max filename length %d is invalid\n", rp.filename_len);
         return;
     }
 
