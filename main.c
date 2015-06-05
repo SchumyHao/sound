@@ -140,7 +140,7 @@ static void play_music(const char* filename)
         }
         strcpy(cmd,"aplay ");
         strcat(cmd,filename);
-        strcat(cmd," &");
+        //strcat(cmd," &");
         printf("Start play. Cmd=%s", cmd);
         system(cmd);
         free(cmd);
@@ -235,7 +235,7 @@ static char getch_matrix(void)
     set_all_columns(LOW);
 
     /* wait until rows not all high */
-    while((low_row = get_low_row())<0) delay(10);
+    while((low_row = get_low_row())<0) delay(50);
 
     /* have buttums down */
     for(i=0; i<__column_max; i++) {
@@ -409,6 +409,7 @@ static void rp_loop(void)
 RERECORD:
                 rp_play_start_record();
                 rp_record(filename);
+RECOMFIRM:
                 do {
                     rp_play_finish_record();
                     ch = rp_get_char();
@@ -419,6 +420,7 @@ RERECORD:
                 }
                 if('*' == ch) { /* try to play record sound */
                     rp_play(filename);
+                    goto RECOMFIRM;
                 }
                 if('#' == ch) { /* confirm */
                     do {
@@ -437,7 +439,7 @@ RERECORD:
 int main(int argc, char* argv[])
 {
     int ch;
-    while ((ch = getopt(argc, argv, "l:L:sbodP:R:")) != -1) {
+    while ((ch = getopt(argc, argv, "l:L:bdP:R:H:I:C:E:J:Q:F:T:S:M:N:K:O:")) != -1) {
         switch (ch) {
             case 'l':
                 rp.filename_len = atoi(optarg);
