@@ -47,8 +47,8 @@ static int column[__column_max] = {
 static char matrix_key[__row_max][__column_max] = {
     {'1','2','3','A'},
     {'4','5','6','B'},
-    {'7','8','9','R'},
-    {'*','0','#','P'},
+    {'7','8','9','C'},
+    {'*','0','#','R'},
 };
 
 struct record_play {
@@ -80,19 +80,19 @@ struct record_play {
         false,           \
         '*',             \
         '#',             \
-        NULL,            \
-        NULL,            \
-        NULL,            \
-        NULL,            \
-        NULL,            \
-        NULL,            \
-        NULL,            \
-        NULL,            \
-        NULL,            \
-        NULL,            \
-        NULL,            \
-        NULL,            \
-        NULL,            \
+        "/home/pi/records/source/pickup",\
+        "/home/pi/records/source/input_play_keys",\
+        "/home/pi/records/source/got_a_char",\
+        "/home/pi/records/source/start_play",\
+        "/home/pi/records/source/finish_play",\
+        "/home/pi/records/source/input_record_keys",\
+        "/home/pi/records/source/start_record",\
+        "/home/pi/records/source/finish_record",\
+        "/home/pi/records/source/finish_record_wait_drop_down",\
+        "/home/pi/records/source/reached_max_filename_len",\
+        "/home/pi/records/source/no_enough_filename_len",\
+        "/home/pi/records/source/file_no_exit",\
+        "/home/pi/records/source/click",\
     }
 
 void usage(void)
@@ -149,62 +149,86 @@ static void play_music(const char* filename)
 
 static inline void rp_play_pick_up(void)
 {
-    play_music(rp.pickup_music_file);
+    if(access(rp.pickup_music_file, 0) == 0) {
+        play_music(rp.pickup_music_file);
+    }
 }
 
 static inline void rp_play_input_play_keys(void)
 {
-    play_music(rp.input_play_keys_music_file);
+    if(access(rp.input_play_keys_music_file, 0) == 0) {
+        play_music(rp.input_play_keys_music_file);
+    }
 }
 
 static inline void rp_play_start_play(void)
 {
-    play_music(rp.start_play_music_file);
+    if(access(rp.start_play_music_file, 0) == 0) {
+        play_music(rp.start_play_music_file);
+    }
 }
 
 static inline void rp_play_finish_play(void)
 {
-    play_music(rp.finish_play_music_file);
+    if(access(rp.finish_play_music_file, 0) == 0) {
+        play_music(rp.finish_play_music_file);
+    }
 }
 
 static inline void rp_play_input_record_keys(void)
 {
-    play_music(rp.input_record_keys_music_file);
+    if(access(rp.input_record_keys_music_file, 0) == 0) {
+        play_music(rp.input_record_keys_music_file);
+    }
 }
 
 static inline void rp_play_filename_len_too_short(void)
 {
-    play_music(rp.no_enough_filename_len_music_file);
+    if(access(rp.no_enough_filename_len_music_file, 0) == 0) {
+        play_music(rp.no_enough_filename_len_music_file);
+    }
 }
 
 static inline void rp_play_start_record(void)
 {
-    play_music(rp.start_record_music_file);
+    if(access(rp.start_record_music_file, 0) == 0) {
+        play_music(rp.start_record_music_file);
+    }
 }
 
 static inline void rp_play_finish_record(void)
 {
-    play_music(rp.finish_record_music_file);
+    if(access(rp.finish_record_music_file, 0) == 0) {
+        play_music(rp.finish_record_music_file);
+    }
 }
 
 static inline void rp_play_finish_record_wait_dorp(void)
 {
-    play_music(rp.finish_record_wait_drop_down_music_file);
+    if(access(rp.finish_record_wait_drop_down_music_file, 0) == 0) {
+        play_music(rp.finish_record_wait_drop_down_music_file);
+    }
 }
 
 static inline void rp_play_got_a_key(void)
 {
-    play_music(rp.got_a_char_music_file);
+    if(access(rp.got_a_char_music_file, 0) == 0) {
+        play_music(rp.got_a_char_music_file);
+    }
 }
 
 static inline void rp_play_reached_max_filename_len(void)
 {
-    play_music(rp.reached_max_filename_len_music_file);
+    if(access(rp.reached_max_filename_len_music_file, 0) == 0) {
+        play_music(rp.reached_max_filename_len_music_file);
+    }
 }
 
 static inline void rp_play_click(void)
 {
-    play_music(rp.click_music_file);
+    if(access(rp.click_music_file, 0) == 0) {
+        play_music(rp.click_music_file);
+    }
 }
 
 static inline int get_low_row(void)
@@ -362,78 +386,66 @@ static void rp_get_filename(char* filename)
     filename[i] = '\0';
 }
 
-static void rp_loop(void)
+static int rp_process(void)
 {
-    static char* filename = NULL;
+    char* filename = NULL;
     char ch = 0x00;
 
     if(rp.filename_len<1) {
         fprintf(stderr,"max filename length %d is invalid\n", rp.filename_len);
-        return;
+        return -1;
     }
 
     filename = (char*)calloc(1, rp.filename_len+1);
     if(filename == NULL) {
         fprintf(stderr,"calloc filename failed\n");
-        return;
+        return -1;
     }
-
-    while(true) {
+    do {
+        rp_play_pick_up();
         ch = rp_get_char();
-        if('P' == ch) { /* pick up phone */
-            do {
-                rp_play_pick_up();
-                ch = rp_get_char();
-            }
-            while(('*'!=ch) && ('#'!=ch));
-            if('*' == ch) { /* start play sounds */
-                rp_play_input_play_keys();
-                rp_get_filename(filename);
-                rp_play_start_play();
-                rp_play(filename);
-                do {
-                    rp_play_finish_play();
-                    ch = rp_get_char();
-                }
-                while(('P'!=ch) && ('R'!=ch));
-                if('P' == ch) { /* drop down phone */
-                    ;
-                }
-                if('R' == ch) { /* start record */
-                    ch = '#';
-                }
-            }
-            if('#' == ch) { /* start record sounds */
-                rp_play_input_record_keys();
-                rp_get_filename(filename);
+    }
+    while(('*'!=ch) && ('#'!=ch));
+    if('*' == ch) { /* start play sounds */
+        rp_play_input_play_keys();
+        rp_get_filename(filename);
+        rp_play_start_play();
+        rp_play(filename);
+        do {
+            rp_play_finish_play();
+            ch = rp_get_char();
+        }
+        while('R'!=ch);
+        if('R' == ch) { /* start record */
+            ch = '#';
+        }
+    }
+    if('#' == ch) { /* start record sounds */
+        rp_play_input_record_keys();
+        rp_get_filename(filename);
 RERECORD:
-                rp_play_start_record();
-                rp_record(filename);
+        rp_play_start_record();
+        rp_record(filename);
 RECOMFIRM:
-                do {
-                    rp_play_finish_record();
-                    ch = rp_get_char();
-                }
-                while(('0'!=ch) && ('*'!=ch) && ('#'!=ch));
-                if('0' == ch) { /* rerecord */
-                    goto RERECORD;
-                }
-                if('*' == ch) { /* try to play record sound */
-                    rp_play(filename);
-                    goto RECOMFIRM;
-                }
-                if('#' == ch) { /* confirm */
-                    do {
-                        rp_play_finish_record_wait_dorp();
-                        ch = rp_get_char();
-                    }
-                    while('P'!=ch);
-                }
-            }
+        do {
+            rp_play_finish_record();
+            ch = rp_get_char();
+        }
+        while(('0'!=ch) && ('*'!=ch) && ('#'!=ch));
+        if('0' == ch) { /* rerecord */
+            goto RERECORD;
+        }
+        if('*' == ch) { /* try to play record sound */
+            rp_play(filename);
+            goto RECOMFIRM;
+        }
+        if('#' == ch) { /* confirm */
+            rp_play_finish_record_wait_dorp();
         }
     }
 
     free(filename);
+    return 0;
 }
 
 int main(int argc, char* argv[])
@@ -518,8 +530,11 @@ int main(int argc, char* argv[])
         }
     }
 
-    rp_loop();
+    if(system("amixer -c 1 set Mic 127") < 0) {
+        fprintf(stderr,"set Mic volume failed\n");
+        return -1;
+    }
 
-    return -1;
+    return rp_process();
 }
 
