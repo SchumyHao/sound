@@ -10,8 +10,11 @@
 #define REMOVABLE_DEVICE_SAVE_FOLDER     "/home/pi/records/usb/"
 
 #define MAX_CMD_BUF_LEN                  (1024)
-//#define DBG_PRINT         fprintf
+#ifdef DEBUG
+#define DBG_PRINT         fprintf
+#else
 #define DBG_PRINT(...)
+#endif
 
 /* use column scan method to get matrix keyboard value */
 enum row_io {
@@ -80,19 +83,19 @@ struct record_play {
         false,           \
         '*',             \
         '#',             \
-        "/home/pi/records/source/pickup",\
-        "/home/pi/records/source/input_play_keys",\
-        "/home/pi/records/source/got_a_char",\
-        "/home/pi/records/source/start_play",\
-        "/home/pi/records/source/finish_play",\
-        "/home/pi/records/source/input_record_keys",\
-        "/home/pi/records/source/start_record",\
-        "/home/pi/records/source/finish_record",\
-        "/home/pi/records/source/finish_record_wait_drop_down",\
-        "/home/pi/records/source/reached_max_filename_len",\
-        "/home/pi/records/source/no_enough_filename_len",\
-        "/home/pi/records/source/file_no_exit",\
-        "/home/pi/records/source/click",\
+        "/home/pi/records/source/pickup.wav",\
+        "/home/pi/records/source/input_play_keys.wav",\
+        "/home/pi/records/source/got_a_char.wav",\
+        "/home/pi/records/source/start_play.wav",\
+        "/home/pi/records/source/finish_play.wav",\
+        "/home/pi/records/source/input_record_keys.wav",\
+        "/home/pi/records/source/start_record.wav",\
+        "/home/pi/records/source/finish_record.wav",\
+        "/home/pi/records/source/finish_record_wait_drop_down.wav",\
+        "/home/pi/records/source/reached_max_filename_len.wav",\
+        "/home/pi/records/source/no_enough_filename_len.wav",\
+        "/home/pi/records/source/file_no_exit.wav",\
+        "/home/pi/records/source/click.wav",\
     }
 
 void usage(void)
@@ -302,14 +305,14 @@ static bool file_name_len_check(const char* filename)
     return (strlen(filename)==rp.filename_len);
 }
 
-static void rp_play(const char* filename)
+static int rp_play(const char* filename)
 {
     char* full_path_file = NULL;
 
     if(rp.store_in_removable_device) {
         full_path_file = (char*)malloc(MAX_CMD_BUF_LEN*sizeof(*full_path_file));
         if(NULL == full_path_file) {
-            return;
+            return -1;
         }
         strcpy(full_path_file, REMOVABLE_DEVICE_SAVE_FOLDER);
         strcat(full_path_file, filename);
@@ -318,14 +321,18 @@ static void rp_play(const char* filename)
     else {
         full_path_file = (char*)malloc(MAX_CMD_BUF_LEN*sizeof(*full_path_file));
         if(NULL == full_path_file) {
-            return;
+            return -1;
         }
         strcpy(full_path_file, IN_SYSTEM_SAVE_FOLDER);
         strcat(full_path_file, filename);
         strcat(full_path_file, ".wav");
     }
     play_music(full_path_file);
+    if(access(full_path_file, 0) != 0) {
+        return -2;
+    }
     free(full_path_file);
+    return 0;
 }
 
 static void rp_record(const char* filename)
@@ -407,13 +414,17 @@ static int rp_process(void)
     }
     while(('*'!=ch) && ('#'!=ch));
     if('*' == ch) { /* start play sounds */
+REPLAY:
         rp_play_input_play_keys();
         rp_get_filename(filename);
         rp_play_start_play();
-        rp_play(filename);
+        if(rp_play(filename) == -2){
+            goto REPLAY;
+        }
         do {
             rp_play_finish_play();
             ch = rp_get_char();
+            DBG_PRINT(stderr,"got ch=%c\n", ch);
         }
         while('R'!=ch);
         if('R' == ch) { /* start record */
